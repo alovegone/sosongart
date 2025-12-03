@@ -82,8 +82,22 @@ const TabButton = ({ active, onClick, children }: { active: boolean, onClick: ()
 );
 
 const PRESET_COLORS = [
-  '#FFFFFF', '#000000', '#FCA5A5', '#FDBA74', '#FCD34D', '#86EFAC', '#93C5FD', '#A5B4FC', '#D8B4FE', '#F0ABFC',
-  '#E5E7EB', '#4B5563', '#EF4444', '#F97316', '#F59E0B', '#22C55E', '#3B82F6', '#6366F1', '#A855F7', '#EC4899',
+  // Top 8 Popular (Default View)
+  '#000000', '#FFFFFF', '#EF4444', '#F97316', '#F59E0B', '#22C55E', '#3B82F6', '#A855F7',
+  
+  // Extended Palette
+  // Grayscale
+  '#F8F9FA', '#E9ECEF', '#DEE2E6', '#CED4DA', '#ADB5BD', '#6C757D', '#495057', '#343A40', '#212529',
+  // Reds/Pinks
+  '#FFF5F5', '#FFE3E3', '#FFC9C9', '#FFA8A8', '#FF8787', '#FF6B6B', '#FA5252', '#F03E3E', '#E03131', '#C92A2A',
+  // Oranges/Yellows
+  '#FFF9DB', '#FFF3BF', '#FFEC99', '#FFD43B', '#FCC419', '#FAB005', '#F59F00', '#F08C00', '#E67700', '#D9480F',
+  // Greens
+  '#EBFBEE', '#D3F9D8', '#B2F2BB', '#8CE99A', '#69DB7C', '#51CF66', '#40C057', '#37B24D', '#2F9E44', '#2B8A3E',
+  // Cyans/Blues
+  '#E3FAFC', '#C5F6FA', '#99E9F2', '#66D9E8', '#3BC9DB', '#22B8CF', '#15AABF', '#1098AD', '#0C8599', '#0B7285',
+  // Indigos/Violets
+  '#F3F0FF', '#E5DBFF', '#D0BFFF', '#B197FC', '#9775FA', '#845EF7', '#7950F2', '#7048E8', '#6741D9', '#5F3DC4'
 ];
 
 const PRESET_GRADIENTS = [
@@ -95,6 +109,10 @@ const PRESET_GRADIENTS = [
   'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
   'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
+  'linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)',
+  'linear-gradient(135deg, #48c6ef 0%, #6f86d6 100%)',
+  'linear-gradient(135deg, #feada6 0%, #f5efef 100%)',
 ];
 
 interface GradientStop {
@@ -125,6 +143,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
       { id: '2', offset: 100, color: '#000000' }
   ]);
   const [activeStopIndex, setActiveStopIndex] = useState(0);
+  const [showAllPresets, setShowAllPresets] = useState(false);
 
   const toolbarRef = useRef<HTMLDivElement>(null);
   const sbRef = useRef<HTMLDivElement>(null);
@@ -139,6 +158,8 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
     // Simple detection of mode
     if (selectedNode.fillColor.includes('gradient')) {
         setActiveFillTab('gradient');
+        // Simple Parser would go here in full app, for now we keep UI state separate from Node string
+        // unless we built a full CSS parser.
     } else if (selectedNode.fillColor.includes('url')) {
         setActiveFillTab('image');
     } else {
@@ -162,7 +183,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
               h: parsedHsva.s === 0 ? prev.h : parsedHsva.h
           }));
       }
-  }, [activeStopIndex, activeFillTab]); // Intentionally removed gradStops to prevent loops
+  }, [activeStopIndex, activeFillTab]); 
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -241,8 +262,17 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
       }
   };
 
-  const handlePresetClick = (hex: string) => {
-      const newHsva = hexToHsva(hex);
+  const handlePresetClick = (hexOrGradient: string) => {
+      if (hexOrGradient.includes('gradient')) {
+          setActiveFillTab('gradient');
+          updateNodeColor(hexOrGradient);
+          // Note: Parsing gradient string back to stops is complex, 
+          // keeping UI simple for now by just applying it.
+          return;
+      }
+
+      // Hex Color
+      const newHsva = hexToHsva(hexOrGradient);
       handleColorChange(newHsva);
   };
 
@@ -341,7 +371,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
 
              {/* COLOR POPUP */}
             {activePopup === 'color' && (
-                <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 w-[280px] z-50">
+                <div className="absolute bottom-full left-0 mb-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 w-[320px] z-50">
                 <div className="flex justify-between items-center mb-3">
                     <span className="font-semibold text-slate-800">填充 (Fill)</span>
                     <button onClick={() => setActivePopup(null)} className="text-slate-400 hover:text-slate-600"><IconX className="w-4 h-4"/></button>
@@ -474,7 +504,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
                                         style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}
                                     />
                                     {/* Opacity */}
-                                    <div className="w-full h-3 relative rounded-full">
+                                    <div className="w-full h-3 relative rounded-full ring-1 ring-black/5">
                                         <div 
                                             className="absolute inset-0 rounded-full overflow-hidden" 
                                             style={{ 
@@ -490,7 +520,8 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
                                             type="range" min="0" max="100" step="1"
                                             value={Math.round(hsva.a * 100)}
                                             onChange={(e) => handleColorChange({ ...hsva, a: parseInt(e.target.value) / 100 })}
-                                            className="absolute inset-0 w-full h-full cursor-pointer z-10 opacity-100" 
+                                            className="absolute inset-0 w-full h-full cursor-pointer appearance-none bg-transparent" 
+                                            style={{ zIndex: 10 }}
                                         />
                                     </div>
                                 </div>
@@ -525,21 +556,47 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
 
                         {/* Presets */}
                         <div>
-                             <div className="flex justify-between mb-2">
+                             <div className="flex justify-between mb-2 items-center">
                                 <span className="text-xs text-slate-400">预设 (Presets)</span>
-                                <span className="text-xs text-slate-300 hover:text-indigo-600 cursor-pointer">更多</span>
-                             </div>
-                             <div className="grid grid-cols-10 gap-1.5">
-                                {(activeFillTab === 'solid' ? PRESET_COLORS : PRESET_COLORS).slice(0, 10).map((c, i) => (
+                                {activeFillTab === 'solid' && (
                                     <button 
-                                        key={i}
-                                        onClick={() => handlePresetClick(c)}
-                                        className="w-5 h-5 rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-transform hover:shadow-md ring-1 ring-black/5"
-                                        style={{ background: c }}
-                                        title={c}
-                                    />
-                                ))}
+                                        onClick={() => setShowAllPresets(!showAllPresets)}
+                                        className="text-xs text-slate-400 hover:text-indigo-600 transition-colors"
+                                    >
+                                        {showAllPresets ? '收起' : '更多'}
+                                    </button>
+                                )}
                              </div>
+                             
+                             {/* Gradient Presets Section */}
+                             {activeFillTab === 'gradient' && (
+                                <div className="grid grid-cols-6 gap-1.5 mb-3">
+                                    {PRESET_GRADIENTS.map((g, i) => (
+                                        <button 
+                                            key={i}
+                                            onClick={() => handlePresetClick(g)}
+                                            className="w-full aspect-square rounded border border-gray-100 shadow-sm hover:scale-105 transition-transform ring-1 ring-black/5"
+                                            style={{ background: g }}
+                                            title="Gradient Preset"
+                                        />
+                                    ))}
+                                </div>
+                             )}
+
+                             {/* Solid Colors */}
+                             {activeFillTab === 'solid' && (
+                                <div className={`grid grid-cols-10 gap-1.5 p-1 transition-all ${showAllPresets ? 'max-h-[160px] overflow-y-auto custom-scrollbar' : ''}`}>
+                                    {(showAllPresets ? PRESET_COLORS : PRESET_COLORS.slice(0, 8)).map((c, i) => (
+                                        <button 
+                                            key={i}
+                                            onClick={() => handlePresetClick(c)}
+                                            className="w-7 h-7 rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-transform hover:shadow-md ring-1 ring-black/5 shrink-0"
+                                            style={{ background: c }}
+                                            title={c}
+                                        />
+                                    ))}
+                                </div>
+                             )}
                         </div>
                     </div>
                 )}
@@ -579,7 +636,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
             <IconChevronDown className="w-3 h-3 text-slate-400" />
             </button>
             {activePopup === 'font' && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                <div className="absolute bottom-full left-0 mb-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[200px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
                     {FONTS.map(f => (
                         <button 
                             key={f.name} onClick={() => { onUpdateNode({ fontFamily: f.value }); setActivePopup(null); }}
@@ -603,7 +660,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
             <IconChevronDown className="w-3 h-3 text-slate-400" />
             </button>
             {activePopup === 'weight' && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[140px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                <div className="absolute bottom-full left-0 mb-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[140px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
                     {FONT_WEIGHTS.map(w => (
                         <button 
                             key={w.name} onClick={() => { onUpdateNode({ fontWeight: w.value }); setActivePopup(null); }}
@@ -628,7 +685,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
                  <IconChevronDown className="w-3 h-3" />
             </button>
             {activePopup === 'size' && (
-                <div className="absolute top-full left-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[80px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                <div className="absolute bottom-full left-0 mb-1 bg-white rounded-lg shadow-xl border border-gray-100 py-1 w-[80px] max-h-[300px] overflow-y-auto custom-scrollbar z-50">
                     {FONT_SIZES.map(s => (
                         <button 
                             key={s} onClick={() => { onUpdateNode({ fontSize: s }); setActivePopup(null); }}
@@ -653,7 +710,7 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
             </button>
             
             {activePopup === 'advanced' && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-xl border border-gray-100 p-3 w-[200px] z-50 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute bottom-full right-0 mb-1 bg-white rounded-lg shadow-xl border border-gray-100 p-3 w-[200px] z-50 animate-in fade-in zoom-in-95 duration-100">
                     
                     <div className="mb-3">
                         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2 block">Alignment</span>
