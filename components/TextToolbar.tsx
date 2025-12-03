@@ -416,19 +416,38 @@ const TextToolbar: React.FC<TextToolbarProps> = ({ selectedNode, onUpdateNode, p
                 {/* Stroke Width Control (Only visible in Stroke Mode) */}
                 {activePopup === 'stroke' && (
                     <div className="mb-4 flex items-center gap-3 bg-slate-50 p-2 rounded-lg border border-gray-100">
-                        <span className="text-xs text-slate-500 whitespace-nowrap">粗细 (Width)</span>
-                        <input 
-                            type="range" min="0" max="10" step="0.5" 
-                            value={selectedNode.strokeWidth || 0}
-                            onChange={(e) => onUpdateNode({ strokeWidth: parseFloat(e.target.value) })}
-                            className="flex-1 h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
-                        />
-                        <div className="w-12 flex items-center bg-white border border-gray-200 rounded px-1">
+                        <span className="text-xs text-slate-500 whitespace-nowrap w-16">粗细 (Width)</span>
+                        
+                        {/* Custom Slider Container */}
+                        <div className="flex-1 h-6 relative flex items-center">
+                            {/* Track */}
+                            <div className="absolute left-0 right-0 h-1 bg-slate-200 rounded-full" />
+                            {/* Input */}
                             <input 
-                                type="number" 
+                                type="range" min="0" max="10" step="0.5" 
                                 value={selectedNode.strokeWidth || 0}
                                 onChange={(e) => onUpdateNode({ strokeWidth: parseFloat(e.target.value) })}
-                                className="w-full bg-transparent text-xs outline-none text-right py-1"
+                                className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                            />
+                            {/* Thumb */}
+                            <div 
+                                className="absolute h-4 w-4 bg-white border-2 border-indigo-600 rounded-full shadow-sm pointer-events-none transition-transform active:scale-110"
+                                style={{ 
+                                    left: `${Math.min(100, Math.max(0, ((selectedNode.strokeWidth || 0) / 10) * 100))}%`, 
+                                    transform: 'translateX(-50%)' 
+                                }}
+                            />
+                        </div>
+
+                        {/* Number Input */}
+                        <div className="w-12 flex items-center bg-white border border-gray-200 rounded px-1 focus-within:ring-1 focus-within:ring-indigo-500">
+                            <input 
+                                type="number" 
+                                min="0" max="20" step="0.5"
+                                value={selectedNode.strokeWidth || 0}
+                                onChange={(e) => onUpdateNode({ strokeWidth: parseFloat(e.target.value) || 0 })}
+                                onMouseDown={(e) => e.stopPropagation()} 
+                                className="w-full bg-transparent text-xs outline-none text-right py-1 text-slate-700 font-medium"
                             />
                             <span className="text-[10px] text-slate-400 ml-0.5">px</span>
                         </div>
