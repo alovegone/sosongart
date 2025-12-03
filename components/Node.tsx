@@ -1,5 +1,4 @@
-
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { CanvasNode } from '../types';
 
 interface NodeProps {
@@ -14,6 +13,34 @@ interface NodeProps {
 
 const Node: React.FC<NodeProps> = ({ node, isSelected, onMouseDown, onChange, onResize, onResizeStart }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isEditing, setIsEditing] = useState(false);
+
+  // Sync editing state: Exit edit mode when deselected
+  useEffect(() => {
+    if (!isSelected) {
+      setIsEditing(false);
+      // Explicitly clear selection when node is deselected
+      if (textareaRef.current) {
+          textareaRef.current.setSelectionRange(0, 0);
+          textareaRef.current.blur();
+      }
+      // Clear global selection to be safe
+      const selection = window.getSelection();
+      if (selection) {
+          selection.removeAllRanges();
+      }
+    } else if (node.type === 'text' && !node.content && isSelected) {
+        // Auto-enter edit mode for newly created empty text nodes
+        setIsEditing(true);
+    }
+  }, [isSelected, node.type, node.content]);
+
+  // Auto-focus when entering edit mode
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isEditing]);
 
   // Auto-resize logic for text nodes
   useEffect(() => {
@@ -132,63 +159,110 @@ const Node: React.FC<NodeProps> = ({ node, isSelected, onMouseDown, onChange, on
   if (node.type === 'text') {
       const isFancyFill = node.fillColor?.includes('gradient') || node.fillColor?.includes('url(');
       
-      const textStyle: React.CSSProperties = {
+      // Base styles shared between the ghost div (stroke) and textarea (fill)
+      const commonTextStyle: React.CSSProperties = {
           fontFamily: node.fontFamily || 'Inter, sans-serif',
           fontSize: `${node.fontSize || 16}px`,
           fontWeight: node.fontWeight || '400',
           textAlign: node.textAlign || 'left',
           textDecoration: node.textDecoration || 'none',
           lineHeight: '1.2', 
-          cursor: 'text',
-          WebkitTextStroke: node.strokeWidth && node.strokeWidth > 0 ? `${node.strokeWidth}px ${node.strokeColor}` : '0',
           padding: '8px',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          boxSizing: 'border-box',
+      };
+
+      // 1. Stroke Layer Style (The "Ghost" Div)
+      const strokeStyle: React.CSSProperties = {
+          ...commonTextStyle,
+          color: 'transparent',
+          WebkitTextStroke: node.strokeWidth && node.strokeWidth > 0 ? `${node.strokeWidth}px ${node.strokeColor || '#000'}` : '0',
+          position: 'absolute',
+          top: 0, left: 0, width: '100%', height: '100%',
+          pointerEvents: 'none', 
+          zIndex: 0,
+      };
+
+      // 2. Fill Layer Style (The Textarea)
+      const fillStyle: React.CSSProperties = {
+          ...commonTextStyle,
+          backgroundColor: 'transparent',
+          resize: 'none',
+          border: 'none',
+          outline: 'none',
+          overflow: 'hidden',
+          WebkitTextStroke: '0', 
+          zIndex: 1, 
+          position: 'relative',
       };
 
       if (isFancyFill) {
-         Object.assign(textStyle, {
+         Object.assign(fillStyle, {
             backgroundImage: node.fillColor,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            // Magic combination for image-fill text with visible decorations:
             WebkitBackgroundClip: 'text',
             backgroundClip: 'text',
             WebkitTextFillColor: 'transparent', 
-            // Keep the standard color opaque so text-decoration line remains visible
-            color: '#000000', 
-            // Explicitly set decoration color to be safe
-            textDecorationColor: '#000000',
+            color: 'transparent', 
+            textDecorationColor: node.strokeColor || '#000000', 
          });
       } else {
-         textStyle.color = node.fillColor || '#000000';
-         textStyle.textDecorationColor = node.fillColor || '#000000';
+         fillStyle.color = node.fillColor || '#000000';
+         fillStyle.textDecorationColor = node.fillColor || '#000000';
       }
 
       return (
         <div
             className={`absolute top-0 left-0 flex flex-col ${isSelected ? 'ring-1 ring-blue-500 z-20' : 'z-10'}`}
-            style={{ ...baseStyle }}
+            style={{ 
+                ...baseStyle,
+                cursor: isEditing ? 'text' : 'grab' // Indicate draggable state vs edit state
+            }}
             onPointerDown={onMouseDown}
+            onDoubleClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+            }}
         >
+             {/* Ghost Div for Stroke */}
+             <div style={strokeStyle} aria-hidden="true">
+                {node.content}
+                {node.content.endsWith('\n') && <br />} 
+             </div>
+
+             {/* Editable Textarea for Fill */}
              <textarea
                 ref={textareaRef}
                 value={node.content}
                 onChange={handleInput}
-                placeholder="Type text..."
-                className="w-full h-full bg-transparent resize-none border-none outline-none overflow-hidden select-text"
-                style={textStyle}
-                // Stop propagation when selected to allow text selection without dragging the node
-                onPointerDown={(e) => isSelected && e.stopPropagation()}
+                placeholder={isEditing ? "Type text..." : ""}
+                className={`w-full h-full ${isEditing ? 'select-text cursor-text' : 'select-none cursor-grab'}`}
+                style={{
+                    ...fillStyle,
+                    pointerEvents: isEditing ? 'auto' : 'none' // Disable pointer events when not editing to allow drag
+                }}
+                readOnly={!isEditing}
+                onPointerDown={(e) => {
+                    // Only stop propagation if editing (to allow selection)
+                    // If not editing, let it bubble to container for drag
+                    if (isEditing) e.stopPropagation();
+                }}
+                onPointerMove={(e) => {
+                    if (isEditing) e.stopPropagation();
+                }}
+                onBlur={() => setIsEditing(false)}
             />
             {isSelected && (
                  <>
-                    {/* Corner Handles (Scale Font) */}
+                    {/* Handles only show when selected */}
                     <ResizeHandle cursor="nwse-resize" position="-top-1.5 -left-1.5" handle="nw" />
                     <ResizeHandle cursor="nesw-resize" position="-top-1.5 -right-1.5" handle="ne" />
                     <ResizeHandle cursor="nesw-resize" position="-bottom-1.5 -left-1.5" handle="sw" />
                     <ResizeHandle cursor="nwse-resize" position="-bottom-1.5 -right-1.5" handle="se" />
                     
-                    {/* Side Handles (Resize Width) */}
                     <ResizeHandle cursor="ew-resize" position="top-1/2 -right-1.5 -translate-y-1/2" handle="e" />
                     <ResizeHandle cursor="ew-resize" position="top-1/2 -left-1.5 -translate-y-1/2" handle="w" />
                  </>
